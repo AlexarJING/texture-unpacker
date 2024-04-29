@@ -121,26 +121,22 @@ const textureExt = '.png';
 const textureExtRegExp = new RegExp(`${textureExt}$`, 'i');
 const dataFormats = ['json', 'plist'] as const;
 
-const appendTextureExt = (path: string): string =>
-{
+const appendTextureExt = (path: string): string => {
     return path + (path.toLowerCase().endsWith(textureExt) ? '' : textureExt);
 };
 
-const trimTextureExt = (path: string): string =>
-{
+const trimTextureExt = (path: string): string => {
     return path.replace(textureExtRegExp, '');
 };
 
-const toNumbersArray = (str: string): number[] =>
-{
+const toNumbersArray = (str: string): number[] => {
     return str.replace(/{/g, '')
         .replace(/}/g, '')
         .split(',')
         .map(value => Number(value));
 };
 
-const parsePlistData = (rawData: string): PlistData =>
-{
+const parsePlistData = (rawData: string): PlistData => {
     const data = <any>plist.parse(rawData) as Cocos2dData | Cocos2dOldData;
     const metadata = data.metadata;
     const format = metadata.format;
@@ -157,13 +153,11 @@ const parsePlistData = (rawData: string): PlistData =>
         }
     } as PlistData;
 
-    if (format !== 2 && format !== 3)
-    {
+    if (format !== 2 && format !== 3) {
         console.warn(`Possible unexpected 'plist' data format [${format}].`);
     }
 
-    for (const filename in data.frames)
-    {
+    for (const filename in data.frames) {
         const f = data.frames[filename];
 
         const frame = toNumbersArray(
@@ -206,15 +200,12 @@ const parsePlistData = (rawData: string): PlistData =>
     return plistData;
 };
 
-const parseJsonData = (rawData: string): JSONArrayData =>
-{
+const parseJsonData = (rawData: string): JSONArrayData => {
     const data = JSON.parse(rawData);
     const frames = (data as JSONArrayData | JSONHashData).frames;
 
-    if (frames)
-    {
-        if (Array.isArray(frames))
-        {
+    if (frames) {
+        if (Array.isArray(frames)) {
             return data as JSONArrayData;
         }
 
@@ -224,8 +215,7 @@ const parseJsonData = (rawData: string): JSONArrayData =>
             meta: hashData.meta
         } as JSONArrayData;
 
-        for (const filename in frames)
-        {
+        for (const filename in frames) {
             jsonData.frames.push(Object.assign({
                 filename
             } as FramesArrayElement, frames[filename]));
@@ -233,8 +223,7 @@ const parseJsonData = (rawData: string): JSONArrayData =>
 
         return jsonData;
     }
-    else if ((data as Phaser3Data).textures)
-    {
+    else if ((data as Phaser3Data).textures) {
         const phaser3Data = data as Phaser3Data;
         const textureData = phaser3Data.textures[0];
 
@@ -252,17 +241,14 @@ const parseJsonData = (rawData: string): JSONArrayData =>
     return data;
 };
 
-const getSpritesData = (filePath: string, dataExt: string): SpritesData =>
-{
+const getSpritesData = (filePath: string, dataExt: string): SpritesData => {
     const rawData = readFileSync(filePath + dataExt, 'utf8');
 
-    if (dataExt === '.plist')
-    {
+    if (dataExt === '.plist') {
         const data = parsePlistData(rawData);
         const spritesData: SpritesData = {};
 
-        for (const filename in data.frames)
-        {
+        for (const filename in data.frames) {
             const f = data.frames[filename];
             const frame = f.frame;
             const offset = f.offset;
@@ -272,6 +258,17 @@ const getSpritesData = (filePath: string, dataExt: string): SpritesData =>
             const h = frame.h;
             const x = !rotated ? frame.x : frame.y;
             const y = !rotated ? frame.y : data.metadata.size.w - h - frame.x;
+            const extendOptions = {
+                left: (ss.w - w) / 2 + offset.x,
+                top: (ss.h - h) / 2 - offset.y,
+                right: (ss.w - w) / 2 - offset.x,
+                bottom: (ss.h - h) / 2 + offset.y,
+                background: { r: 0, g: 0, b: 0, alpha: 0 }
+            }
+            extendOptions.left = Math.max(0, Math.round(extendOptions.left));
+            extendOptions.top = Math.max(0, Math.round(extendOptions.top));
+            extendOptions.right = Math.max(0, Math.round(extendOptions.right));
+            extendOptions.bottom = Math.max(0, Math.round(extendOptions.bottom));
 
             spritesData[filename] = {
                 rotated,
@@ -281,25 +278,17 @@ const getSpritesData = (filePath: string, dataExt: string): SpritesData =>
                     width: w,
                     height: h
                 },
-                extendOptions: {
-                    left: (ss.w - w) / 2 + offset.x,
-                    top: (ss.h - h) / 2 - offset.y,
-                    right: (ss.w - w) / 2 - offset.x,
-                    bottom: (ss.h - h) / 2 + offset.y,
-                    background: { r: 0, g: 0, b: 0, alpha: 0 }
-                }
+                extendOptions
             };
         }
 
         return spritesData;
     }
-    else if (dataExt === '.json')
-    {
+    else if (dataExt === '.json') {
         const data = parseJsonData(rawData);
         const spritesData: SpritesData = {};
 
-        data.frames.forEach((f) =>
-        {
+        data.frames.forEach((f) => {
             const frame = f.frame;
             const rotated = f.rotated;
             const trimmed = f.trimmed;
@@ -330,15 +319,13 @@ const getSpritesData = (filePath: string, dataExt: string): SpritesData =>
 
         return spritesData;
     }
-    else
-    {
+    else {
         console.error(`Wrong data format on parsing: '${dataExt}'.`);
         process.exit(1);
     }
 };
 
-const generateSprites = (filePath: string, dataExt: string): void =>
-{
+const generateSprites = (filePath: string, dataExt: string): void => {
     const texturePath = filePath + textureExt;
     const texture = sharp(texturePath);
     const spritesData = getSpritesData(filePath, dataExt);
@@ -346,15 +333,13 @@ const generateSprites = (filePath: string, dataExt: string): void =>
     const outPath = outputPath || filePath;
     const clean = argv.clean && existsSync(outPath);
 
-    if (clean)
-    {
+    if (clean) {
         console.info(`Cleaning output directory: '${outPath}'.`);
 
         rmSync(outPath, { recursive: true, force: true });
     }
 
-    if (!existsSync(outPath))
-    {
+    if (!existsSync(outPath)) {
         !clean && console.info(`Creating output directory: '${outPath}'.`);
 
         mkdirSync(outPath, { recursive: true });
@@ -362,8 +347,7 @@ const generateSprites = (filePath: string, dataExt: string): void =>
 
     const promises: Promise<void>[] = [];
 
-    for (const spriteName in spritesData)
-    {
+    for (const spriteName in spritesData) {
         const fileOut = appendTextureExt(join(outPath, spriteName));
 
         const spriteData = spritesData[spriteName];
@@ -375,43 +359,35 @@ const generateSprites = (filePath: string, dataExt: string): void =>
             .rotate(spriteData.rotated ? -90 : 0)
             .extract(spriteData.extractRegion)
             .extend(spriteData.extendOptions)
-            .toFile(fileOut).then(() =>
-            {
+            .toFile(fileOut).then(() => {
                 console.info(`${fileOut} generated.`);
             },
-            (reason) =>
-            {
-                console.error(`'${spriteName}' error:`, reason);
-            })
+                (reason) => {
+                    console.error(`'${spriteName}' error:`, reason);
+                })
         );
     }
 
-    Promise.all(promises).then(() =>
-    {
+    Promise.all(promises).then(() => {
         console.info(`Unpacked '${texturePath}'.`);
     },
-    (reason) =>
-    {
-        console.error(reason);
-    });
+        (reason) => {
+            console.error(reason);
+        });
 };
 
 // Get the all files in the specified directory (path).
-const getFiles = (path: string): string[] =>
-{
+const getFiles = (path: string): string[] => {
     const results: string[] = [];
     const files = readdirSync(path);
 
-    files.forEach((filename) =>
-    {
+    files.forEach((filename) => {
         const fullPath = join(path, filename);
 
-        if (existsSync(fullPath) && lstatSync(fullPath).isDirectory())
-        {
+        if (existsSync(fullPath) && lstatSync(fullPath).isDirectory()) {
             results.push(...getFiles(fullPath));
         }
-        else if (fullPath.toLowerCase().endsWith(textureExt))
-        {
+        else if (fullPath.toLowerCase().endsWith(textureExt)) {
             results.push(trimTextureExt(fullPath));
         }
     });
@@ -419,25 +395,20 @@ const getFiles = (path: string): string[] =>
     return results;
 };
 
-const getDataPath = (filePath: string): string =>
-{
-    if (dataPath)
-    {
+const getDataPath = (filePath: string): string => {
+    if (dataPath) {
         return dataPath;
     }
 
-    if (dataExt)
-    {
+    if (dataExt) {
         return filePath + dataExt;
     }
 
-    for (let i = 0; i < dataFormats.length; i++)
-    {
+    for (let i = 0; i < dataFormats.length; i++) {
         const dataFormat = dataFormats[i];
         const dataPath = `${filePath}.${dataFormat}`;
 
-        if (existsSync(dataPath))
-        {
+        if (existsSync(dataPath)) {
             console.info(`Data file found: '${dataPath}'.`);
             return dataPath;
         }
@@ -446,19 +417,16 @@ const getDataPath = (filePath: string): string =>
     return filePath;
 };
 
-const unpack = (filePath: string): void =>
-{
+const unpack = (filePath: string): void => {
     const texturePath = filePath + textureExt;
     const dataPath = getDataPath(filePath);
 
-    if (existsSync(texturePath) && existsSync(dataPath))
-    {
+    if (existsSync(texturePath) && existsSync(dataPath)) {
         console.info(`Unpacking '${texturePath}'...`);
 
         generateSprites(filePath, extname(dataPath));
     }
-    else
-    {
+    else {
         console.warn('Both texture and data files must exist:'
             + `\n'${texturePath}'`
             + `\n'${dataPath}'`
@@ -466,30 +434,24 @@ const unpack = (filePath: string): void =>
     }
 };
 
-const getAbsolutePath = (path: string): string =>
-{
-    if (isAbsolute(path))
-    {
+const getAbsolutePath = (path: string): string => {
+    if (isAbsolute(path)) {
         return path;
     }
-    else
-    {
+    else {
         return join(__dirname, path);
     }
 };
 
-const getDataExt = (): string =>
-{
-    if (dataPath)
-    {
+const getDataExt = (): string => {
+    if (dataPath) {
         console.info(`Custom data file passed: '${dataPath}'.`);
         return extname(dataPath);
     }
 
     const dataFormat = argv.dataFormat;
 
-    switch (dataFormat)
-    {
+    switch (dataFormat) {
         case '':
             console.info('No data format passed, checking for all supported...');
             return '';
@@ -557,16 +519,13 @@ const outputPath = argv.outputPath && getAbsolutePath(argv.outputPath);
 
 const texturePath = appendTextureExt(inputPath);
 
-if (existsSync(texturePath))
-{
+if (existsSync(texturePath)) {
     unpack(trimTextureExt(texturePath));
 }
 // supports multiple file conversions
-else if (existsSync(inputPath) && lstatSync(inputPath).isDirectory())
-{
+else if (existsSync(inputPath) && lstatSync(inputPath).isDirectory()) {
     getFiles(inputPath).forEach(unpack);
 }
-else
-{
+else {
     console.error(`'${inputPath}' not found.`);
 }
